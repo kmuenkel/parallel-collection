@@ -1,5 +1,5 @@
 {
-  "name": "kmuenkel/delegator",
+  "name": "kmuenkel/parallel-collection",
   "description": "A Laravel wrapper for amphp/amp offering a Collection Macro that performs parallel processing",
   "homepage": "https://github.com/kmuenkel/paralle;-collection",
   "time": "202-03-07 15:00:00",
