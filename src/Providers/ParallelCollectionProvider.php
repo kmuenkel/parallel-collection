@@ -2,16 +2,9 @@
 
 namespace ParallelCollection\Providers;
 
-use Closure;
 use Throwable;
-use Amp\MultiReasonException;
 use ParallelCollection\ParallelItemHandler;
-use function Amp\Promise\wait;
-use Amp\Parallel\Sync\ContextPanicError;
-use Amp\Parallel\Worker\TaskFailureException;
-use function Amp\ParallelFunctions\parallelMap;
 use Illuminate\Support\{Collection, ServiceProvider};
-use ParallelCollection\SerializerWrappers\{ItemSerializer, HandlerSerializer};
 use ParallelCollection\SerializerWrappers\AppInitializer\{AppInitializer, AppInitializerContract};
 
 class ParallelCollectionProvider extends ServiceProvider
