@@ -1,0 +1,63 @@
+{
+  "name": "kmuenkel/delegator",
+  "description": "A Laravel wrapper for amphp/amp offering a Collection Macro that performs parallel processing",
+  "homepage": "https://github.com/kmuenkel/paralle;-collection",
+  "time": "202-03-07 15:00:00",
+  "authors": [
+    {
+      "name": "Kevin Muenkel",
+      "email": "kevin_tm@yahoo.com",
+      "role": "Creator, Developer, Maintainer"
+    }
+  ],
+  "keywords": [
+    "asynchronous",
+    "promise",
+    "performance",
+    "collection",
+    "parallel"
+  ],
+  "license": "MIT",
+  "type": "library",
+  "require": {
+    "php": ">=7.4",
+    "amphp/parallel-functions": "^1.1"
+  },
+  "require-dev": {
+    "laravel/framework": ">=8.0",
+    "barryvdh/laravel-ide-helper": "^2.10",
+    "phpunit/phpunit": "^9.5.8",
+    "mockery/mockery": "^1.4.4",
+    "fzaninotto/faker": "^1.9.1",
+    "orchestra/testbench": "^6.20",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "ParallelCollection\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "ParallelCollection\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "preferred-install": "dist"
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "[ $COMPOSER_DEV_MODE -eq 0 ] || php artisan ide-helper:generate",
+      "[ $COMPOSER_DEV_MODE -eq 0 ] || php artisan ide-helper:meta"
+    ]
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "ParallelCollection\\Providers\\ParallelCollectionProvider"
+      ]
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
