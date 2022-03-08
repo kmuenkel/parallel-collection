@@ -28,7 +28,7 @@ class HandlerSerializer
      */
     public function __construct(?callable $handler, AppInitializer $appInitializer)
     {
-        $this->handler = $handler;
+        $this->handler = $handler ? ItemSerializer::make($handler) : $handler;
         $this->appInitializer = $appInitializer;
     }
 

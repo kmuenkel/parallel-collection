@@ -66,14 +66,14 @@ class ParallelItemHandler
 
     /**
      * @param callable|null $resolver
-     * @return Closure
+     * @return ItemSerializer
      */
-    protected function makeResolver(?callable $resolver): Closure
+    protected function makeResolver(?callable $resolver): ItemSerializer
     {
         $placeHolders = array_fill_keys(array_keys($this->items), null);
         $reasonLogger = $this->makeLogger();
 
-        return function (?Throwable $exception, $values) use ($resolver, $reasonLogger, $placeHolders) {
+        $resolver = function (?Throwable $exception, $values) use ($resolver, $reasonLogger, $placeHolders) {
             $reasonLogger($exception);
             //If something's gone wrong,$values will be null instead of an array of results. So this transformation
             //will allow the $resolver to not worry about array type-hint issues or missing keys.
@@ -81,6 +81,8 @@ class ParallelItemHandler
 
             return $resolver ? $resolver($values, $exception) : $values;
         };
+
+        return ItemSerializer::make($resolver);
     }
 
     /**

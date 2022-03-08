@@ -74,11 +74,12 @@ class ItemSerializer
     }
 
     /**
+     * @param ...$args
      * @return mixed
      * @throws PhpVersionNotSupportedException
      */
-    public function __invoke()
+    public function __invoke(...$args)
     {
-        return ($this->job)();
+        return ($this->job)(...$args);
     }
 }
