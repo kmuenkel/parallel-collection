@@ -2,13 +2,17 @@
 
 namespace ParallelCollection\SerializerWrappers;
 
+use Closure;
 use Laravel\SerializableClosure\SerializableClosure;
 use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
 use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
 
 class ItemSerializer
 {
-    use SerializesAndRestoresModelIdentifiers;
+    use SerializesAndRestoresModelIdentifiers {
+        getSerializedPropertyValue as getSerializedModel;
+        getRestoredPropertyValue as getRestoredModel;
+    }
 
     /**
      * @var callable
@@ -16,35 +20,37 @@ class ItemSerializer
     protected $job;
 
     /**
+     * @var array
+     */
+    protected array $serialized = [];
+
+    /**
      * @param callable $job
      */
     public function __construct(callable $job)
     {
         $this->job = $job;
-
-        $this->prepareForModelSerialization();
     }
 
     /**
-     * @return void
+     * @param $value
+     * @return string
      */
-    protected function prepareForModelSerialization()
+    protected function getSerializedPropertyValue($value): string
     {
-        SerializableClosure::transformUseVariablesUsing(function ($data) {
-            foreach ($data as $key => $value) {
-                $data[$key] = $this->getSerializedPropertyValue($value);
-            }
+        $value = $this->getSerializedModel($value);
 
-            return $data;
-        });
+        //Workaround for how SerializableClosure doesn't trigger __sleep() or __serialize() on objects in 'use'
+        return serialize($value instanceof Closure ? static::make($value) : $value);
+    }
 
-        SerializableClosure::resolveUseVariablesUsing(function ($data) {
-            foreach ($data as $key => $value) {
-                $data[$key] = $this->getRestoredPropertyValue($value);
-            }
-
-            return $data;
-        });
+    /**
+     * @param mixed $value
+     * @return mixed
+     */
+    protected function getRestoredPropertyValue($value)
+    {
+        return $this->getRestoredModel(unserialize($value));
     }
 
     /**
@@ -61,7 +67,11 @@ class ItemSerializer
      */
     public function __serialize(): array
     {
-        return ['job' => new SerializableClosure($this->job)];
+        SerializableClosure::transformUseVariablesUsing(function (array $data): array {
+            return array_map(fn ($value) => $this->getSerializedPropertyValue($value), $data);
+        });
+
+        return ['job' => serialize(new SerializableClosure($this->job))];
     }
 
     /**
@@ -70,7 +80,13 @@ class ItemSerializer
      */
     public function __unserialize(array $data): void
     {
-        $this->job = $data['job'];
+        SerializableClosure::resolveUseVariablesUsing(function (array $data): array {
+            return array_map(fn ($value) => $this->getRestoredPropertyValue($value), $data);
+        });
+
+        $this->job = unserialize($data['job']);
+        //Simplify the stack-trace a little
+        $this->job = $this->job instanceof SerializableClosure ? $this->job->getClosure() : $this->job;
     }
 
     /**
