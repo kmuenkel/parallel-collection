@@ -60,9 +60,26 @@ class ParallelItemHandler
     protected function serializeItems(): array
     {
         $serialize = function ($value, $key): array {
+            $request = request();
+            $request = [
+                'query' => $request->query,
+                'attributes' => $request->attributes,
+                'request' => $request->request,
+                'headers' => $request->headers,
+                'server' => $request->server,
+                'files' => $request->files,
+                'cookies' => $request->cookies,
+                'json' => $request->json(),
+                'method' => $request->method(),
+                'route_resolver' => ItemSerializer::make($request->getRouteResolver()),
+                'user_resolver' => ItemSerializer::make($request->getUserResolver()),
+                'session' => $request->getSession(),
+                'locale' => $request->getLocale()
+            ];
+
             $value = serialize($value instanceof Closure ? ItemSerializer::make($value) : $value);
 
-            return compact('value', 'key');
+            return compact('value', 'key', 'request');
         };
 
         return array_map($serialize, $this->items, array_keys($this->items));
@@ -99,14 +116,20 @@ class ParallelItemHandler
         return function (?Throwable $exception) {
             if ($exception instanceof MultiReasonException) {
                 array_map(function (Throwable $exception) {
+                    $error = get_class($exception).': '
+                        .'('.$exception->getCode().'): '
+                        .$exception->getMessage().': '
+                        .$exception->getTraceAsString();
+
                     if ($exception instanceof TaskFailureThrowable || $exception instanceof ContextPanicError) {
                         $error = get_class($exception).': '.
                             $exception->getOriginalClassName()
                             .'('.$exception->getOriginalCode().'): '
                             .$exception->getOriginalMessage().': '
                             .$exception->getOriginalTraceAsString();
-                        logger()->error($error);
                     }
+
+                    logger()->error($error);
                 }, $exception->getReasons());
             }
         };

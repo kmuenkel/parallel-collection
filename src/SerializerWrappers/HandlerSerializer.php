@@ -2,6 +2,7 @@
 
 namespace ParallelCollection\SerializerWrappers;
 
+use Illuminate\Http\Request;
 use ParallelCollection\SerializerWrappers\AppInitializer\AppInitializerContract as AppInitializer;
 
 /**
@@ -39,9 +40,26 @@ class HandlerSerializer
     public function __invoke(array $item)
     {
         $this->appInitializer->createApplication();
+
+        request()->query = $item['request']['query'];
+        request()->attributes = $item['request']['attributes'];
+        request()->request = $item['request']['request'];
+        request()->headers = $item['request']['headers'];
+        request()->server = $item['request']['server'];
+        request()->files = $item['request']['files'];
+        request()->cookies = $item['request']['cookies'];
+        request()->setMethod($item['request']['method']);
+        request()->setJson($item['request']['json']);
+        request()->setRouteResolver($item['request']['route_resolver']->getJob());
+        request()->setUserResolver($item['request']['user_resolver']->getJob());
+        request()->setLaravelSession($item['request']['session']);
+        request()->setLocale($item['request']['locale']);
+
         $value = unserialize($item['value']);
+        $key = $item['key'];
+        $handler = $this->handler ?: fn (callable $item) => $item();
 
         //If the items are themselves callables, let them handle themselves
-        return ($this->handler ?: fn (callable $item) => $item())($value, $item['key']);
+        return $handler($value, $key);
     }
 }

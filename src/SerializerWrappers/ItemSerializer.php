@@ -63,6 +63,14 @@ class ItemSerializer
     }
 
     /**
+     * @return callable
+     */
+    public function getJob(): callable
+    {
+        return $this->job;
+    }
+
+    /**
      * @throws PhpVersionNotSupportedException
      */
     public function __serialize(): array
@@ -77,6 +85,7 @@ class ItemSerializer
     /**
      * @param array $data
      * @return void
+     * @throws PhpVersionNotSupportedException
      */
     public function __unserialize(array $data): void
     {
