@@ -2,7 +2,7 @@
 
 namespace ParallelCollection\SerializerWrappers;
 
-use Illuminate\Http\Request;
+use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
 use ParallelCollection\SerializerWrappers\AppInitializer\AppInitializerContract as AppInitializer;
 
 /**
@@ -36,11 +36,13 @@ class HandlerSerializer
     /**
      * @param array{ItemSerializer|mixed, mixed} $item
      * @return mixed
+     * @throws PhpVersionNotSupportedException
      */
     public function __invoke(array $item)
     {
         $this->appInitializer->createApplication();
 
+        //request() returns a singleton, so we can reestablish the original request from prior to app reinitialization
         request()->query = $item['request']['query'];
         request()->attributes = $item['request']['attributes'];
         request()->request = $item['request']['request'];
