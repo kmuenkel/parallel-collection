@@ -33,15 +33,15 @@ class HandlerSerializer
     }
 
     /**
-     * @param string $item
+     * @param array{ItemSerializer|mixed, mixed} $item
      * @return mixed
      */
-    public function __invoke(string $item)
+    public function __invoke(array $item)
     {
         $this->appInitializer->createApplication();
-        $item = unserialize($item);
+        $value = unserialize($item['value']);
 
         //If the items are themselves callables, let them handle themselves
-        return ($this->handler ?: fn (callable $item) => $item())($item);
+        return ($this->handler ?: fn (callable $item) => $item())($value, $item['key']);
     }
 }

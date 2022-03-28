@@ -55,13 +55,17 @@ class ParallelItemHandler
      * ModelIdentifiers to Models, unless we pre-emptively serialize the item here, so that the $handler may
      * unserialize it after the closure has been unserialized and the App reestablished.
      *
-     * @return ItemSerializer[]
+     * @return array{ItemSerializer|mixed, mixed}[]
      */
     protected function serializeItems(): array
     {
-        $serialize = fn ($item): string => serialize($item instanceof Closure ? ItemSerializer::make($item) : $item);
+        $serialize = function ($value, $key): array {
+            $value = serialize($value instanceof Closure ? ItemSerializer::make($value) : $value);
 
-        return array_map($serialize, $this->items);
+            return compact('value', 'key');
+        };
+
+        return array_map($serialize, $this->items, array_keys($this->items));
     }
 
     /**
