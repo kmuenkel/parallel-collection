@@ -14,6 +14,11 @@ use ParallelCollection\SerializerWrappers\{ItemSerializer, HandlerSerializer};
 class ParallelItemHandler
 {
     /**
+     * @var bool    Set this to true for testing purposes
+     */
+    public static bool $sync = false;
+
+    /**
      * @var array
      */
     protected array $items;
@@ -36,6 +41,10 @@ class ParallelItemHandler
         $items = $this->serializeItems();
 
         try {
+            if (static::$sync) {
+                return $resolver(null, array_map(fn (array $item) => $handler($item), $items));
+            }
+
             $promise = parallelMap($items, $handler);
             $promise->onResolve($resolver);
 
