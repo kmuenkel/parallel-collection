@@ -68,7 +68,14 @@ class ParallelItemHandler
      */
     protected function serializeItems(): array
     {
-        $serialize = function ($value, $key): array {
+        $bindings = array_map(function (array $binding): array {
+            $binding['concrete'] = $binding['concrete'] instanceof Closure
+                ? ItemSerializer::make($binding['concrete']) : $binding['concrete'];
+
+            return $binding;
+        }, app()->getBindings());
+
+        $serialize = function ($value, $key) use ($bindings): array {
             $request = request();
             $request = [
                 'query' => $request->query,
@@ -88,7 +95,7 @@ class ParallelItemHandler
 
             $value = serialize($value instanceof Closure ? ItemSerializer::make($value) : $value);
 
-            return compact('value', 'key', 'request');
+            return compact('value', 'key', 'request', 'bindings');
         };
 
         $keys = array_keys($this->items);

@@ -2,6 +2,7 @@
 
 namespace ParallelCollection\SerializerWrappers;
 
+use Throwable;
 use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
 use ParallelCollection\SerializerWrappers\AppInitializer\AppInitializerContract as AppInitializer;
 
@@ -40,7 +41,20 @@ class HandlerSerializer
      */
     public function __invoke(array $item)
     {
-        $this->appInitializer->createApplication();
+        $app = $this->appInitializer->createApplication();
+
+        //Bindings don't only occur in the booted service providers. PhpUnit for example, may attempt to override them
+        array_map(function (array $binding, string $abstraction) use ($app) {
+            $concrete = $binding['concrete'];
+            $concrete = $concrete instanceof ItemSerializer ? $concrete->getJob() : $concrete;
+
+            try {
+                //FIXME: For some reason, the 'url' alias binding here causes infinite recursion
+                $abstraction != 'url' && $app->bind($abstraction, $concrete, $binding['shared']);
+            } catch (Throwable $exception) {
+//                logger($abstraction);
+            }
+        }, $item['bindings'], array_keys($item['bindings']));
 
         //request() returns a singleton, so we can reestablish the original request from prior to app reinitialization
         request()->query = $item['request']['query'];
@@ -57,11 +71,11 @@ class HandlerSerializer
         request()->setLaravelSession($item['request']['session']);
         request()->setLocale($item['request']['locale']);
 
+        //If the items are themselves callables, let them handle themselves
         $value = unserialize($item['value']);
         $key = $item['key'];
         $handler = $this->handler ?: fn (callable $item) => $item();
 
-        //If the items are themselves callables, let them handle themselves
         return $handler($value, $key);
     }
 }
