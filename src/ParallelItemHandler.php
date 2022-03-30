@@ -91,7 +91,10 @@ class ParallelItemHandler
             return compact('value', 'key', 'request');
         };
 
-        return array_map($serialize, $this->items, array_keys($this->items));
+        $keys = array_keys($this->items);
+        $items = array_map($serialize, $this->items, $keys);
+
+        return array_combine($keys, $items);
     }
 
     /**
