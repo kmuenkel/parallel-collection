@@ -37,8 +37,8 @@ print_r(compact('results', 'elapsedTime'));
  * (
  *    "results" => Array
  *    (
- *       [0] => 'perform some long process'
- *       [1] => 'perform another long process'
+ *       ["process1"] => 'perform some long process'
+ *       ["process2"] => 'perform another long process'
  *    )
  *    "elapsedTime" => 5
  * )
