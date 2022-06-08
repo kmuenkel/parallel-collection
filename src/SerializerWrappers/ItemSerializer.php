@@ -5,6 +5,7 @@ namespace ParallelCollection\SerializerWrappers;
 use Closure;
 use Laravel\SerializableClosure\SerializableClosure;
 use Illuminate\Queue\SerializesAndRestoresModelIdentifiers;
+use Opis\Closure\SerializableClosure as OpisSerializableClosure;
 use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
 
 class ItemSerializer
@@ -33,6 +34,7 @@ class ItemSerializer
     }
 
     /**
+     * Workaround for how SerializableClosure doesn't trigger __sleep() or __serialize() on objects in 'use'
      * @param $value
      * @return string
      */
@@ -40,8 +42,31 @@ class ItemSerializer
     {
         $value = $this->getSerializedModel($value);
 
-        //Workaround for how SerializableClosure doesn't trigger __sleep() or __serialize() on objects in 'use'
-        return serialize($value instanceof Closure ? static::make($value) : $value);
+        return \Opis\Closure\serialize(static::makeSerializable($value));
+    }
+
+    /**
+     * @param mixed $value
+     * @return mixed|ItemSerializer
+     */
+    public static function makeSerializable($value)
+    {
+        $value = $value instanceof Closure ? static::make($value) : $value;
+        $value = is_array($value) ? array_map([static::class, __FUNCTION__], $value) : $value;
+
+        return $value;
+    }
+
+    /**
+     * @param mixed $value
+     * @return callable|mixed
+     */
+    public static function deserialize($value)
+    {
+        $value = $value instanceof static ? $value->getJob() : $value;
+        $value = is_array($value) ? array_map([static::class, __FUNCTION__], $value) : $value;
+
+        return $value;
     }
 
     /**
@@ -50,7 +75,9 @@ class ItemSerializer
      */
     protected function getRestoredPropertyValue($value)
     {
-        return $this->getRestoredModel(unserialize($value));
+        $value = $this->getRestoredModel(\Opis\Closure\unserialize($value));
+
+        return static::deserialize($value);
     }
 
     /**
@@ -79,7 +106,9 @@ class ItemSerializer
             return array_map(fn ($value) => $this->getSerializedPropertyValue($value), $data);
         });
 
-        return ['job' => serialize(new SerializableClosure($this->job))];
+        $job = $this->job instanceof OpisSerializableClosure ? $this->job->getClosure() : $this->job;
+
+        return ['job' => serialize(new SerializableClosure($job))];
     }
 
     /**

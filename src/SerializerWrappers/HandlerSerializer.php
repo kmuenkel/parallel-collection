@@ -30,12 +30,12 @@ class HandlerSerializer
      */
     public function __construct(?callable $handler, AppInitializer $appInitializer)
     {
-        $this->handler = $handler ? ItemSerializer::make($handler) : $handler;
+        $this->handler = $handler;
         $this->appInitializer = $appInitializer;
     }
 
     /**
-     * @param array{ItemSerializer|mixed, mixed} $item
+     * @param array $item
      * @return mixed
      * @throws PhpVersionNotSupportedException
      */
@@ -45,16 +45,16 @@ class HandlerSerializer
 
         //Bindings don't only occur in the booted service providers. PhpUnit for example, may attempt to override them
         array_map(function (array $binding, string $abstraction) use ($app) {
-            $concrete = $binding['concrete'];
-            $concrete = $concrete instanceof ItemSerializer ? $concrete->getJob() : $concrete;
+            $concrete = ItemSerializer::deserialize(\Opis\Closure\unserialize($binding['concrete']));
 
             try {
-                //FIXME: For some reason, the 'url' alias binding here causes infinite recursion
-                $abstraction != 'url' && $app->bind($abstraction, $concrete, $binding['shared']);
+                $app->bind($abstraction, $concrete, $binding['shared']);
             } catch (Throwable $exception) {
-//                logger($abstraction);
+                //
             }
         }, $item['bindings'], array_keys($item['bindings']));
+
+        $item['request'] = \Opis\Closure\unserialize($item['request']);
 
         //request() returns a singleton, so we can reestablish the original request from prior to app reinitialization
         request()->query = $item['request']['query'];
@@ -66,16 +66,37 @@ class HandlerSerializer
         request()->cookies = $item['request']['cookies'];
         request()->setMethod($item['request']['method']);
         request()->setJson($item['request']['json']);
-        request()->setRouteResolver($item['request']['route_resolver']->getJob());
-        request()->setUserResolver($item['request']['user_resolver']->getJob());
+        request()->setRouteResolver($item['request']['route_resolver']);
+        request()->setUserResolver($item['request']['user_resolver']);
         request()->setLaravelSession($item['request']['session']);
         request()->setLocale($item['request']['locale']);
 
         //If the items are themselves callables, let them handle themselves
-        $value = unserialize($item['value']);
+        $value = \Opis\Closure\unserialize($item['value']);
         $key = $item['key'];
         $handler = $this->handler ?: fn (callable $item) => $item();
 
         return $handler($value, $key);
+    }
+
+    /**
+     * @return array
+     */
+    public function __serialize(): array
+    {
+        return [
+            'appInitializer' => $this->appInitializer,
+            'handler' => \Opis\Closure\serialize($this->handler)
+        ];
+    }
+
+    /**
+     * @param array $data
+     * @return void
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->appInitializer = $data['appInitializer'];
+        $this->handler = \Opis\Closure\unserialize($data['handler']);
     }
 }

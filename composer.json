@@ -21,10 +21,11 @@
   "type": "library",
   "require": {
     "php": ">=7.4",
-    "amphp/parallel-functions": "^1.1"
+    "laravel/framework": ">=8.0",
+    "amphp/parallel-functions": "^1.1",
+    "opis/closure": "^3.6"
   },
   "require-dev": {
-    "laravel/framework": ">=8.0",
     "barryvdh/laravel-ide-helper": "^2.10",
     "phpunit/phpunit": "^9.5.8",
     "mockery/mockery": "^1.4.4",

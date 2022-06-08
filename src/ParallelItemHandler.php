@@ -42,6 +42,8 @@ class ParallelItemHandler
 
         try {
             if (static::$sync) {
+                $items = array_map(fn ($item) => unserialize(serialize($item)), $items);
+
                 return $resolver(null, array_map(fn (array $item) => $handler($item), $items));
             }
 
@@ -64,36 +66,41 @@ class ParallelItemHandler
      * ModelIdentifiers to Models, unless we pre-emptively serialize the item here, so that the $handler may
      * unserialize it after the closure has been unserialized and the App reestablished.
      *
-     * @return array{ItemSerializer|mixed, mixed}[]
+     * @return array[]
      */
     protected function serializeItems(): array
     {
-        $bindings = array_map(function (array $binding): array {
-            $binding['concrete'] = $binding['concrete'] instanceof Closure
-                ? ItemSerializer::make($binding['concrete']) : $binding['concrete'];
+        static $bindings = null;
+        static $request = null;
+
+        $bindings = $bindings ?: array_filter(array_map(function (array $binding): ?array {
+            try {
+                $binding['concrete'] = \Opis\Closure\serialize(ItemSerializer::makeSerializable($binding['concrete']));
+            } catch (\Throwable $exception) {
+                return null;
+            }
 
             return $binding;
-        }, app()->getBindings());
+        }, app()->getBindings()));
 
-        $serialize = function ($value, $key) use ($bindings): array {
-            $request = request();
-            $request = [
-                'query' => $request->query,
-                'attributes' => $request->attributes,
-                'request' => $request->request,
-                'headers' => $request->headers,
-                'server' => $request->server,
-                'files' => $request->files,
-                'cookies' => $request->cookies,
-                'json' => $request->json(),
-                'method' => $request->method(),
-                'route_resolver' => ItemSerializer::make($request->getRouteResolver()),
-                'user_resolver' => ItemSerializer::make($request->getUserResolver()),
-                'session' => $request->getSession(),
-                'locale' => $request->getLocale()
-            ];
+        $request = $request ?: \Opis\Closure\serialize([
+            'query' => request()->query,
+            'attributes' => request()->attributes,
+            'request' => request()->request,
+            'headers' => request()->headers,
+            'server' => request()->server,
+            'files' => request()->files,
+            'cookies' => request()->cookies,
+            'json' => request()->json(),
+            'method' => request()->method(),
+            'route_resolver' => request()->getRouteResolver(),
+            'user_resolver' => request()->getUserResolver(),
+            'session' => request()->getSession(),
+            'locale' => request()->getLocale()
+        ]);
 
-            $value = serialize($value instanceof Closure ? ItemSerializer::make($value) : $value);
+        $serialize = function ($value, $key) use ($bindings, $request): array {
+            $value = \Opis\Closure\serialize($value);
 
             return compact('value', 'key', 'request', 'bindings');
         };
@@ -106,23 +113,21 @@ class ParallelItemHandler
 
     /**
      * @param callable|null $resolver
-     * @return ItemSerializer
+     * @return callable
      */
-    protected function makeResolver(?callable $resolver): ItemSerializer
+    protected function makeResolver(?callable $resolver): callable
     {
         $placeHolders = array_fill_keys(array_keys($this->items), null);
         $reasonLogger = $this->makeLogger();
 
-        $resolver = function (?Throwable $exception, $values) use ($resolver, $reasonLogger, $placeHolders) {
+        return function (?Throwable $exception, $values) use ($resolver, $reasonLogger, $placeHolders) {
             $reasonLogger($exception);
-            //If something's gone wrong,$values will be null instead of an array of results. So this transformation
+            //If something's gone wrong, $values will be null instead of an array of results. So this transformation
             //will allow the $resolver to not worry about array type-hint issues or missing keys.
             $values = (array)$values + $placeHolders;
 
             return $resolver ? $resolver($values, $exception) : $values;
         };
-
-        return ItemSerializer::make($resolver);
     }
 
     /**
