@@ -100,7 +100,7 @@ class ParallelItemHandler
         static $bindings = null;
         static $request = null;
 
-        $bindings = $bindings ?: array_filter(array_map(function (array $binding, string $abstraction): ?array {
+        $bindings = $bindings ?: collect(app()->getBindings())->map(function (array $binding, string $abstraction): ?array {
             //Even with Opis's help, some things can't be serialized, and may cause the script to hang rather than fail
             //if attempted. So just preemptively skip those. opis\closure v4.x will fix a lot of quirks when it's done.
             if (in_array($abstraction, static::$cantSerialize)) {
@@ -118,7 +118,8 @@ class ParallelItemHandler
             }
 
             return $binding;
-        }, $bindings = app()->getBindings(), array_keys($bindings)));
+        })->filter()->toArray();
+//        dd(array_values(array_diff(array_keys(app()->getBindings()), array_keys($bindings))));
 
         $request = $request ?: \Opis\Closure\serialize([
             'query' => request()->query,
