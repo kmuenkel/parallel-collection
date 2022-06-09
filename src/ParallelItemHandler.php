@@ -19,6 +19,33 @@ class ParallelItemHandler
     public static bool $sync = false;
 
     /**
+     * @var string[]
+     */
+    public static array $cantSerialize = [
+        'Illuminate\Foundation\PackageManifest',
+        'url',
+        'encrypter',
+        'filesystem.disk',
+        'filesystem.cloud',
+        'Illuminate\Testing\ParallelTesting',
+        'view',
+        'view.engine.resolver',
+        'Facade\IgnitionContracts\SolutionProviderRepository',
+        'Facade\Ignition\IgnitionConfig',
+        'Facade\FlareClient\Flare',
+        'Asm89\Stack\CorsService',
+        'League\OAuth2\Server\AuthorizationServer',
+        'League\OAuth2\Server\ResourceServer',
+        'flare.logger',
+        'queue.failer',
+        'Facade\Ignition\DumpRecorder\MultiDumpHandler',
+        'Illuminate\Console\Scheduling\Schedule',
+        'command.ide-helper.generate',
+        'command.ide-helper.meta',
+        'Illuminate\Console\OutputStyle'
+    ];
+
+    /**
      * @var array
      */
     protected array $items;
@@ -73,15 +100,25 @@ class ParallelItemHandler
         static $bindings = null;
         static $request = null;
 
-        $bindings = $bindings ?: array_filter(array_map(function (array $binding): ?array {
+        $bindings = $bindings ?: array_filter(array_map(function (array $binding, string $abstraction): ?array {
+            //Even with Opis's help, some things can't be serialized, and may cause the script to hang rather than fail
+            //if attempted. So just preemptively skip those. opis\closure v4.x will fix a lot of quirks when it's done.
+            if (in_array($abstraction, static::$cantSerialize)) {
+                return null;
+            }
+
             try {
                 $binding['concrete'] = \Opis\Closure\serialize(ItemSerializer::makeSerializable($binding['concrete']));
             } catch (\Throwable $exception) {
+                //Not everything is serializable, and that's ok. When the framework is spun up on the other side to
+                //reestablish the closure job's access to its abstractions, its default settings will be permitted to
+                //stand. Nothing short of opis\closure v4.x that literally rewrites the "Closure" parent class will
+                //be a 100% solution, so this will just get us as close as we can.
                 return null;
             }
 
             return $binding;
-        }, app()->getBindings()));
+        }, $bindings = app()->getBindings(), array_keys($bindings)));
 
         $request = $request ?: \Opis\Closure\serialize([
             'query' => request()->query,

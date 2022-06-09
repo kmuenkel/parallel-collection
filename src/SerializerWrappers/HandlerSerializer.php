@@ -3,7 +3,6 @@
 namespace ParallelCollection\SerializerWrappers;
 
 use Throwable;
-use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
 use ParallelCollection\SerializerWrappers\AppInitializer\AppInitializerContract as AppInitializer;
 
 /**
@@ -37,7 +36,6 @@ class HandlerSerializer
     /**
      * @param array $item
      * @return mixed
-     * @throws PhpVersionNotSupportedException
      */
     public function __invoke(array $item)
     {
