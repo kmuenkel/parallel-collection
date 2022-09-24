@@ -68,7 +68,9 @@ class ParallelItemHandler
         $items = $this->serializeItems();
 
         try {
-            if (static::$sync) {
+            if (static::$sync) {    //This is mostly meant for testing
+                //This may seem redundant, but it's designed to be as realistic as possible to the asynchronous version.
+                //That means triggering whatever magic serialization methods may be at play here.
                 $items = array_map(fn ($item) => unserialize(serialize($item)), $items);
 
                 return $resolver(null, array_map(fn (array $item) => $handler($item), $items));
@@ -107,19 +109,14 @@ class ParallelItemHandler
                 return null;
             }
 
-            try {
-                $binding['concrete'] = \Opis\Closure\serialize(ItemSerializer::makeSerializable($binding['concrete']));
-            } catch (\Throwable $exception) {
-                //Not everything is serializable, and that's ok. When the framework is spun up on the other side to
-                //reestablish the closure job's access to its abstractions, its default settings will be permitted to
-                //stand. Nothing short of opis\closure v4.x that literally rewrites the "Closure" parent class will
-                //be a 100% solution, so this will just get us as close as we can.
-                return null;
-            }
+            $concrete = $this->attemptSerialization($binding['concrete']);
 
-            return $binding;
+            return !is_null($concrete) ? array_merge($binding, compact('concrete')) : null;
         })->filter()->toArray();
 //        dd(array_values(array_diff(array_keys(app()->getBindings()), array_keys($bindings))));
+
+        $routeResolver = $this->attemptSerialization(request()->getRouteResolver()) ?: fn () => null;
+        $userResolver = $this->attemptSerialization(request()->getUserResolver()) ?: fn () => null;
 
         $request = $request ?: \Opis\Closure\serialize([
             'query' => request()->query,
@@ -131,8 +128,8 @@ class ParallelItemHandler
             'cookies' => request()->cookies,
             'json' => request()->json(),
             'method' => request()->method(),
-            'route_resolver' => request()->getRouteResolver(),
-            'user_resolver' => request()->getUserResolver(),
+            'route_resolver' => $routeResolver,
+            'user_resolver' => $userResolver,
             'session' => request()->getSession(),
             'locale' => request()->getLocale()
         ]);
@@ -147,6 +144,28 @@ class ParallelItemHandler
         $items = array_map($serialize, $this->items, $keys);
 
         return array_combine($keys, $items);
+    }
+
+    /**
+     * @param $item
+     * @return string|null
+     * @throws Throwable
+     */
+    protected function attemptSerialization($item): ?string
+    {
+        try {
+            return \Opis\Closure\serialize(ItemSerializer::makeSerializable($item));
+        } catch (\Throwable $exception) {
+            if (!preg_match('/Serialization of \'.+?\' is not allowed/', $exception->getMessage())) {
+                throw $exception;
+            }
+
+            //Not everything is serializable, and that's ok. When the framework is spun up on the other side to
+            //reestablish the closure job's access to its abstractions, its default settings will be permitted to
+            //stand. Nothing short of opis\closure v4.x that literally rewrites the "Closure" parent class will
+            //be a 100% solution, so this will just get us as close as we can.
+            return null;
+        }
     }
 
     /**

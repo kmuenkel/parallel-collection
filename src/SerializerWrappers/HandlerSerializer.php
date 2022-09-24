@@ -39,7 +39,26 @@ class HandlerSerializer
      */
     public function __invoke(array $item)
     {
-        $app = $this->appInitializer->createApplication();
+        $retries = 3;
+        while (!isset($app) && $retries--) {
+            try {
+                $app = $this->appInitializer->createApplication();
+            } catch (\Illuminate\Contracts\Filesystem\FileNotFoundException $exception) {
+                if (!$retries) {  //Handle race conditions regarding the reading/writing of cache files
+                    throw $exception;
+                }
+
+                //
+                usleep(100000);
+            } catch (\ErrorException $exception) {  //Handle race conditions regarding the reading/writing of cache files
+                if (!preg_match('/failed to open stream: Operation not permitted/', $exception->getMessage()) || !$retries) {
+                    throw $exception;
+                }
+
+                //
+                usleep(100000);
+            }
+        }
 
         //Bindings don't only occur in the booted service providers. PhpUnit for example, may attempt to override them
         array_map(function (array $binding, string $abstraction) use ($app) {
@@ -48,7 +67,7 @@ class HandlerSerializer
             try {
                 $app->bind($abstraction, $concrete, $binding['shared']);
             } catch (Throwable $exception) {
-                //
+                throw $exception;
             }
         }, $item['bindings'], array_keys($item['bindings']));
 
@@ -64,8 +83,8 @@ class HandlerSerializer
         request()->cookies = $item['request']['cookies'];
         request()->setMethod($item['request']['method']);
         request()->setJson($item['request']['json']);
-        request()->setRouteResolver($item['request']['route_resolver']);
-        request()->setUserResolver($item['request']['user_resolver']);
+        request()->setRouteResolver(ItemSerializer::deserialize(\Opis\Closure\unserialize($item['request']['route_resolver'])));
+        request()->setUserResolver(ItemSerializer::deserialize(\Opis\Closure\unserialize($item['request']['user_resolver'])));
         request()->setLaravelSession($item['request']['session']);
         request()->setLocale($item['request']['locale']);
 

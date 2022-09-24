@@ -49,7 +49,7 @@ class ParallelHandlingTest extends TestCase
         $performanceImprovement = 1 - $elapsedTime / $totalProcessTime;
         $expectedImprovement = 1 - $sleepTime / $totalProcessTime;
         $expectedImprovementPerItem = $expectedImprovement / count($items);
-        $tolerance = .05;
+        $tolerance = .1;
         $expectedImprovementWithTolerance = $expectedImprovementPerItem * (1 - $tolerance) * count($items);
 
         self::assertGreaterThanOrEqual($expectedImprovementWithTolerance, $performanceImprovement);
